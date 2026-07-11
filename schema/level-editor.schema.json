@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://jevzgames.com/schemas/jumpfall.level-editor-1.0.0.schema.json",
+  "title": "JumpFall Mod Level Editor Pieces 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["pieces"],
+  "properties": {
+    "pieces": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "$ref": "#/definitions/piece" }
+    }
+  },
+  "definitions": {
+    "piece": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "baseId"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "baseId": { "enum": ["box_ground", "checkpoint", "apple", "orb_jump", "plane_jump", "elevator"] },
+        "asset": { "type": "string", "pattern": "^(?:|[^/\\\\].*\\.(?:png|jpg|jpeg))$" },
+        "color": { "type": "string", "pattern": "^(?:|#[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?)$" },
+        "pixelsPerUnit": { "type": "number", "minimum": 1, "maximum": 1000, "default": 100 },
+        "scaleX": { "type": "number", "minimum": 0, "maximum": 100, "default": 0 },
+        "scaleY": { "type": "number", "minimum": 0, "maximum": 100, "default": 0 }
+      }
+    }
+  }
+}
