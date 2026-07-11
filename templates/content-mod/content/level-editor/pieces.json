@@ -1,0 +1,14 @@
+{
+  "pieces": [
+    {
+      "id": "blue-platform",
+      "name": "Blue Platform",
+      "baseId": "box_ground",
+      "asset": "",
+      "color": "#4BA3FFFF",
+      "pixelsPerUnit": 100,
+      "scaleX": 2,
+      "scaleY": 1
+    }
+  ]
+}
