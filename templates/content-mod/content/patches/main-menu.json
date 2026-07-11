@@ -1,0 +1,14 @@
+{
+  "patches": [
+    {
+      "scene": "Menugame",
+      "target": "/Canvas/Title",
+      "operation": "set_text",
+      "value": "JumpFall modded",
+      "asset": "",
+      "localizationKey": "com.autor.mi-mod.menu_title",
+      "boolValue": true,
+      "numberValue": 1.0
+    }
+  ]
+}
