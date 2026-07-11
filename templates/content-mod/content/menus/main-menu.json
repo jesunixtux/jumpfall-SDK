@@ -1,0 +1,64 @@
+{
+  "menus": [
+    {
+      "id": "mod-main-menu",
+      "surface": "main",
+      "scene": "Menugame",
+      "hideTargets": [],
+      "sortingOrder": 500,
+      "elements": [
+        {
+          "id": "panel",
+          "parent": "",
+          "type": "panel",
+          "text": "",
+          "localizationKey": "",
+          "asset": "",
+          "color": "#101820DD",
+          "x": 600,
+          "y": 360,
+          "width": 560,
+          "height": 220,
+          "fontSize": 28,
+          "action": "",
+          "target": "",
+          "value": ""
+        },
+        {
+          "id": "title",
+          "parent": "panel",
+          "type": "text",
+          "text": "My JumpFall mod",
+          "localizationKey": "com.autor.mi-mod.panel_title",
+          "asset": "",
+          "color": "#FFFFFFFF",
+          "x": 0,
+          "y": 35,
+          "width": 500,
+          "height": 70,
+          "fontSize": 32,
+          "action": "",
+          "target": "",
+          "value": ""
+        },
+        {
+          "id": "exit-button",
+          "parent": "panel",
+          "type": "button",
+          "text": "Exit game",
+          "localizationKey": "com.autor.mi-mod.exit",
+          "asset": "",
+          "color": "#FFFFFFFF",
+          "x": 0,
+          "y": -55,
+          "width": 320,
+          "height": 64,
+          "fontSize": 26,
+          "action": "quit",
+          "target": "",
+          "value": ""
+        }
+      ]
+    }
+  ]
+}
