@@ -1,0 +1,1 @@
+JumpFall Modding Wiki — runtime `0.50.05`, SDK/schema `1.0.0`, Unity `6000.3.8f1`. La documentación describe el comportamiento implementado; las funciones experimentales deben probarse en builds reales antes de anunciar compatibilidad pública.
