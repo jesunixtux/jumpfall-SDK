@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "com.autor.mi-mod",
+  "name": "Mi primer mod",
+  "version": "1.0.0",
+  "author": "Tu nombre",
+  "description": "Plantilla mínima para JumpFall Modding 1.0.",
+  "type": "content",
+  "gameVersion": {
+    "min": "0.50.05",
+    "max": ""
+  },
+  "priority": 0,
+  "dependencies": [],
+  "conflicts": [],
+  "capabilities": [
+    "visuals",
+    "level_editor",
+    "localization",
+    "menus"
+  ],
+  "content": {
+    "maps": [],
+    "levelEditor": [
+      "content/level-editor/pieces.json"
+    ],
+    "scenePatches": [
+      "content/patches/main-menu.json"
+    ],
+    "menus": [
+      "content/menus/main-menu.json"
+    ],
+    "localization": [
+      {
+        "language": "English",
+        "file": "content/localization/english.json"
+      },
+      {
+        "language": "SpanishLatam",
+        "file": "content/localization/spanish-latam.json"
+      }
+    ],
+    "scripts": [],
+    "playerTuning": {
+      "moveSpeedMultiplier": 1.0,
+      "jumpForceMultiplier": 1.0,
+      "gravityMultiplier": 1.0,
+      "dashSpeedMultiplier": 1.0,
+      "maxJumpsDelta": 0
+    }
+  }
+}
