@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jumpfall-sdk"
+version = "1.0.0"
+description = "Validator and packer for JumpFall .jfmod packages"
+requires-python = ">=3.10"
+
+[project.scripts]
+jumpfall-sdk = "jumpfall_sdk:main"
+
+[tool.setuptools]
+py-modules = ["jumpfall_sdk"]
