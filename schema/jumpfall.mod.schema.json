@@ -1,0 +1,147 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://jevzgames.com/schemas/jumpfall.mod-1.0.0.schema.json",
+  "title": "JumpFall Mod Manifest 1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "name",
+    "version",
+    "author",
+    "type",
+    "gameVersion",
+    "capabilities",
+    "content"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$",
+      "not": { "const": "jumpfall" }
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "version": {
+      "type": "string",
+      "pattern": "^(?:v)?(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+    },
+    "author": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "description": { "type": "string", "maxLength": 4096 },
+    "type": { "enum": ["content", "total_conversion"] },
+    "gameVersion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min"],
+      "properties": {
+        "min": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "max": { "type": "string", "pattern": "^(?:|[0-9]+\\.[0-9]+\\.[0-9]+)$" }
+      }
+    },
+    "priority": { "type": "integer", "minimum": -1000, "maximum": 1000 },
+    "dependencies": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/dependency" }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/conflict" }
+    },
+    "capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": ["maps", "level_editor", "visuals", "audio", "localization", "menus", "mechanics"]
+      }
+    },
+    "content": { "$ref": "#/definitions/content" }
+  },
+  "definitions": {
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$" },
+        "version": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "optional": { "type": "boolean" }
+      }
+    },
+    "conflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$" },
+        "version": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "reason": { "type": "string", "maxLength": 512 }
+      }
+    },
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maps", "scenePatches", "menus", "localization", "scripts", "playerTuning"],
+      "properties": {
+        "maps": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/map" }
+        },
+        "levelEditor": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[^/\\\\].*\\.json$" }
+        },
+        "scenePatches": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[^/\\\\].*\\.json$" }
+        },
+        "menus": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[^/\\\\].*\\.json$" }
+        },
+        "localization": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/localization" }
+        },
+        "scripts": {
+          "type": "array",
+          "maxItems": 0,
+          "description": "Reserved. Lua is disabled until an official sandbox runtime ships."
+        },
+        "playerTuning": { "$ref": "#/definitions/playerTuning" }
+      }
+    },
+    "map": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "file", "templateScene"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "file": { "type": "string", "pattern": "^[^/\\\\].*\\.jfue$" },
+        "templateScene": { "const": "MapJfue" }
+      }
+    },
+    "localization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["language", "file"],
+      "properties": {
+        "language": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "file": { "type": "string", "pattern": "^[^/\\\\].*\\.json$" }
+      }
+    },
+    "playerTuning": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "moveSpeedMultiplier": { "type": "number", "minimum": 0.75, "maximum": 1.25, "default": 1.0 },
+        "jumpForceMultiplier": { "type": "number", "minimum": 0.75, "maximum": 1.25, "default": 1.0 },
+        "gravityMultiplier": { "type": "number", "minimum": 0.75, "maximum": 1.25, "default": 1.0 },
+        "dashSpeedMultiplier": { "type": "number", "minimum": 0.75, "maximum": 1.25, "default": 1.0 },
+        "maxJumpsDelta": { "type": "integer", "minimum": -1, "maximum": 1, "default": 0 }
+      }
+    }
+  }
+}
