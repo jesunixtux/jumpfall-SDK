@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "key": "com.autor.mi-mod.menu_title",
+      "value": "JumpFall con mods"
+    },
+    {
+      "key": "com.autor.mi-mod.panel_title",
+      "value": "Mi mod de JumpFall"
+    },
+    {
+      "key": "com.autor.mi-mod.exit",
+      "value": "Salir del juego"
+    }
+  ]
+}
