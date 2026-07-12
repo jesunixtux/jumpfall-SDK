@@ -10,6 +10,7 @@ requires-python = ">=3.10"
 
 [project.scripts]
 jumpfall-sdk = "jumpfall_sdk:main"
+jumpfall-menu-editor = "jumpfall_menu_editor:main"
 
 [tool.setuptools]
-py-modules = ["jumpfall_sdk"]
+py-modules = ["jumpfall_sdk", "jumpfall_menu_editor"]

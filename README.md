@@ -93,6 +93,18 @@ Después:
 En Unity Editor, detén Play Mode y vuelve a iniciarlo porque el reinicio automático
 está deshabilitado allí.
 
+## Steam Workshop
+
+El flujo de Workshop para mods `.jfmod` esta documentado en:
+
+```text
+README_WORKSHOP.md
+```
+
+Resumen rapido: publica el `.jfmod` generado por el SDK en el item de Steam
+Workshop. JumpFall lo copiara a `Documents/jumpfall/mods/packages/workshop/` y
+lo mostrara en el gestor de mods con `F10`.
+
 Argumentos de modo seguro:
 
 ```text

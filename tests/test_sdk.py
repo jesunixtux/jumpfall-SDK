@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = ROOT / "templates" / "content-mod"
 sys.path.insert(0, str(ROOT))
 
+from jumpfall_menu_editor import run_self_test
 from jumpfall_sdk import Validator, pack_command
 
 
@@ -25,6 +26,11 @@ class JumpfallSdkTests(unittest.TestCase):
                 names = archive.namelist()
             self.assertIn("jumpfall.mod.json", names)
             self.assertIn("content/level-editor/pieces.json", names)
+            self.assertTrue(all("\\" not in name for name in names))
+            self.assertTrue(all(not Path(name).is_absolute() for name in names))
+
+    def test_visual_menu_editor_self_test_is_headless(self) -> None:
+        self.assertEqual(run_self_test(), 0)
 
     def test_rejects_unknown_level_editor_archetype(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

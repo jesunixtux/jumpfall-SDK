@@ -21,8 +21,30 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-import tkinter as tk
-from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
+try:
+    import tkinter as tk
+    from tkinter import colorchooser, filedialog, messagebox, simpledialog, ttk
+except ImportError as exc:
+    class _MissingTk:
+        Toplevel = object
+        Misc = object
+        Tk = object
+        Widget = object
+        PhotoImage = object
+        BooleanVar = object
+        IntVar = object
+        StringVar = object
+        Canvas = object
+        Menu = object
+        Text = object
+        TclError = Exception
+        END = "end"
+
+    tk = _MissingTk()  # type: ignore[assignment]
+    colorchooser = filedialog = messagebox = simpledialog = ttk = None  # type: ignore[assignment]
+    TK_IMPORT_ERROR = exc
+else:
+    TK_IMPORT_ERROR = None
 
 REFERENCE_WIDTH = 1920.0
 REFERENCE_HEIGHT = 1080.0
@@ -1325,7 +1347,28 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.self_test:
         return run_self_test()
-    root = tk.Tk()
+
+    if TK_IMPORT_ERROR is not None or tk is None:
+        print(
+            "JumpFall Visual Menu Editor requires Tkinter/Tk 8.6. "
+            "Install the Tk package for your Python distribution and try again.",
+            file=sys.stderr,
+        )
+        if TK_IMPORT_ERROR is not None:
+            print(f"Import error: {TK_IMPORT_ERROR}", file=sys.stderr)
+        return 2
+
+    try:
+        root = tk.Tk()
+    except Exception as exc:
+        print(
+            "JumpFall Visual Menu Editor could not start a desktop window. "
+            "Check that a graphical session is available.",
+            file=sys.stderr,
+        )
+        print(f"Window error: {exc}", file=sys.stderr)
+        return 2
+
     JumpFallMenuEditor(root, args.path)
     root.mainloop()
     return 0
