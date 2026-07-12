@@ -14,6 +14,7 @@ JumpFall Modding 1.0 acepta datos, no código arbitrario.
 - Enlaces simbólicos dentro del paquete.
 - Más de una conversión completa.
 - Lua en `.jfmod`.
+- Archivos `.lua`, incluso sin declarar.
 - Red, procesos, reflexión y acceso libre al filesystem.
 
 ## Extensiones permitidas en `.jfmod`
@@ -54,8 +55,27 @@ prefija con el ID del mod para que un paquete no suplante piezas de otro.
 | manifiesto | 256 KiB |
 | imagen | 32 MiB y 4096×4096 |
 | audio | 64 MiB |
+| mapa `.jfue` | 16 MiB |
 | archivos por paquete | 2000 |
 | ratio sospechoso | 200:1 para archivos grandes |
+
+Un `.jfue` de mod admite hasta 10000 piezas, 2000 triggers, 256 fondos y 256
+pistas. El runtime recrea su caché antes de cargar y fuerza `lua.enabled=false`
+en la copia temporal.
+
+## Selectores protegidos
+
+Los parches, `hideTargets`, `set_active` y `toggle_active` usan rutas exactas. Se
+rechaza cualquier segmento relacionado con:
+
+```text
+player rigidbody collider camera spawn loading
+modruntime modmanager eventsystem inputsystem
+```
+
+La comparación ignora espacios, guiones, guiones bajos y mayúsculas. Esto impide
+que un mod declarativo desactive el jugador, la cámara, los colliders o los
+sistemas que cargan y administran mods.
 
 ## Archivos ignorados
 
