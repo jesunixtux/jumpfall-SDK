@@ -63,6 +63,50 @@ class JumpfallSdkTests(unittest.TestCase):
             self.assertFalse(validator.validate())
             self.assertIn("level_editor.base", {problem.code for problem in validator.problems})
 
+    def test_rejects_package_output_inside_source(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "mod"
+            source.mkdir()
+            (source / "jumpfall.mod.json").write_text("{}", encoding="utf-8")
+            output = source / "dist" / "bad.jfmod"
+            self.assertEqual(pack_command(source, output), 1)
+            self.assertFalse(output.exists())
+
+    def test_selectors_match_runtime_security_rules(self) -> None:
+        self.assertTrue(Validator._safe_selector("/Canvas/MainPanel/Title"))
+        self.assertFalse(Validator._safe_selector("/Player"))
+        self.assertFalse(Validator._safe_selector("/Canvas/Main Camera"))
+        self.assertFalse(Validator._safe_selector("/Canvas//Title"))
+        self.assertFalse(Validator._safe_selector("/Canvas/../Title"))
+
+    def test_rejects_lua_files_even_without_manifest_capability(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "main.lua").write_text("return true", encoding="utf-8")
+            (root / "jumpfall.mod.json").write_text("{}", encoding="utf-8")
+            validator = Validator(root)
+            self.assertFalse(validator.validate())
+            self.assertIn("package.extension", {problem.code for problem in validator.problems})
+
+    def test_rejects_oversized_manifest_content_arrays_early(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            validator = Validator(Path(temporary))
+            validator._validate_content(
+                {
+                    "maps": [{} for _ in range(129)],
+                    "levelEditor": [],
+                    "scenePatches": [],
+                    "menus": [],
+                    "localization": [],
+                    "scripts": [],
+                    "playerTuning": {},
+                },
+                set(),
+                "com.test.limit",
+            )
+            self.assertIn("content.count", {problem.code for problem in validator.problems})
+            self.assertEqual(len(validator.problems), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
