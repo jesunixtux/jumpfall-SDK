@@ -28,6 +28,7 @@ MAX_SINGLE_FILE_BYTES = 128 * 1024 * 1024
 MAX_MANIFEST_BYTES = 256 * 1024
 MAX_IMAGE_BYTES = 32 * 1024 * 1024
 MAX_AUDIO_BYTES = 64 * 1024 * 1024
+MAX_MAP_BYTES = 16 * 1024 * 1024
 MAX_FILES = 2000
 
 ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]{2,63}$")
@@ -114,6 +115,18 @@ SCENE_OPERATIONS = {
 }
 MENU_TYPES = {"panel", "image", "text", "button"}
 MENU_ACTIONS = {"", "resume", "quit", "load_map", "set_active", "toggle_active"}
+RESTRICTED_SELECTOR_FRAGMENTS = {
+    "player",
+    "rigidbody",
+    "collider",
+    "camera",
+    "spawn",
+    "loading",
+    "modruntime",
+    "modmanager",
+    "eventsystem",
+    "inputsystem",
+}
 LEVEL_EDITOR_PIECE_BASE_IDS = {
     "box_ground",
     "checkpoint",
@@ -121,6 +134,13 @@ LEVEL_EDITOR_PIECE_BASE_IDS = {
     "orb_jump",
     "plane_jump",
     "elevator",
+}
+CONTENT_ARRAY_LIMITS = {
+    "maps": 128,
+    "levelEditor": 16,
+    "scenePatches": 32,
+    "menus": 16,
+    "localization": 16,
 }
 
 
@@ -307,6 +327,21 @@ class Validator:
         scripts = self._array(content, "scripts")
         tuning = content.get("playerTuning", {})
 
+        arrays = {
+            "maps": maps,
+            "levelEditor": level_editor,
+            "scenePatches": patches,
+            "menus": menus,
+            "localization": localization,
+        }
+        counts_valid = True
+        for name, maximum in CONTENT_ARRAY_LIMITS.items():
+            if len(arrays[name]) > maximum:
+                self.error("content.count", f"{name} contains more than {maximum} entries.")
+                counts_valid = False
+        if not counts_valid:
+            return
+
         self._require_capability(bool(maps), "maps", capabilities)
         self._require_capability(bool(level_editor), "level_editor", capabilities)
         self._require_capability(bool(menus), "menus", capabilities)
@@ -338,6 +373,8 @@ class Validator:
             path = self._validate_reference(raw, {".json"}, "level_editor.file")
             if path:
                 self._validate_level_editor_file(path, mod_id, editor_piece_ids)
+        if len(editor_piece_ids) > 512:
+            self.error("level_editor.total_count", "A mod can register at most 512 level-editor pieces.")
 
         allowed_map_piece_ids = set(LEVEL_EDITOR_PIECE_BASE_IDS)
         allowed_map_piece_ids.update(editor_piece_ids)
@@ -459,6 +496,21 @@ class Validator:
             piece_id = piece.get("id")
             if not isinstance(piece_id, str) or piece_id not in allowed_ids:
                 self.error("map.piece_id", f"Unknown piece id in {path.relative_to(self.root)} at index {index}: {piece_id}")
+        triggers = data.get("triggers", [])
+        backgrounds = data.get("backgrounds", [])
+        soundtrack = data.get("soundtrack", {})
+        tracks = soundtrack.get("tracks", []) if isinstance(soundtrack, dict) else []
+        if len(pieces) > 10000:
+            self.error("map.piece_count", f"{path.relative_to(self.root)} contains more than 10000 pieces.")
+        if not isinstance(triggers, list) or len(triggers) > 2000:
+            self.error("map.trigger_count", f"{path.relative_to(self.root)} triggers must be an array with at most 2000 entries.")
+        if not isinstance(backgrounds, list) or len(backgrounds) > 256:
+            self.error("map.background_count", f"{path.relative_to(self.root)} backgrounds must be an array with at most 256 entries.")
+        if not isinstance(tracks, list) or len(tracks) > 256:
+            self.error("map.soundtrack_count", f"{path.relative_to(self.root)} soundtrack tracks must be an array with at most 256 entries.")
+        lua = data.get("lua")
+        if isinstance(lua, dict) and lua.get("enabled"):
+            self.warning("map.lua_disabled", f"Lua is enabled in {path.relative_to(self.root)} but will be disabled in .jfmod runtime.")
 
     def _validate_patch_file(self, path: Path, capabilities: set[str]) -> None:
         data = self._load_json(path, "scene_patch.json")
@@ -480,7 +532,7 @@ class Validator:
                 continue
             selector = patch.get("target")
             if not self._safe_selector(selector):
-                self.error("scene_patch.target", f"Patch target must begin with '/': {selector}")
+                self.error("scene_patch.target", f"Patch target must be an exact, non-restricted path beginning with '/': {selector}")
             self._require_capability(True, "audio" if str(operation).startswith("set_audio") else "visuals", capabilities)
             if operation == "set_sprite":
                 self._validate_reference(patch.get("asset"), {".png", ".jpg", ".jpeg"}, "scene_patch.asset")
@@ -512,7 +564,7 @@ class Validator:
                 self.error("menu.id", f"Invalid menu id: {menu_id}")
             for selector in menu.get("hideTargets", []):
                 if not self._safe_selector(selector):
-                    self.error("menu.hide_target", f"hideTargets selector must begin with '/': {selector}")
+                    self.error("menu.hide_target", f"hideTargets must use an exact, non-restricted path: {selector}")
             elements = menu.get("elements", [])
             if not isinstance(elements, list) or len(elements) > 128:
                 self.error("menu.elements", "Menu elements must be an array with at most 128 entries.")
@@ -538,7 +590,7 @@ class Validator:
                 if action == "load_map" and element.get("target") not in map_ids:
                     self.error("menu.map", "load_map target must reference a map in the same mod.")
                 if action in {"set_active", "toggle_active"} and not self._safe_selector(element.get("target")):
-                    self.error("menu.target", "set/toggle_active target must begin with '/'.")
+                    self.error("menu.target", "set/toggle_active target must be an exact, non-restricted path beginning with '/'.")
                 asset = element.get("asset", "")
                 if asset:
                     self._require_capability(True, "visuals", capabilities)
@@ -634,7 +686,18 @@ class Validator:
 
     @staticmethod
     def _safe_selector(value: Any) -> bool:
-        return isinstance(value, str) and value.startswith("/") and "//" not in value and "/../" not in value
+        if not isinstance(value, str) or not value.startswith("/") or len(value) > 512:
+            return False
+        pieces = value.split("/")[1:]
+        if not pieces:
+            return False
+        for piece in pieces:
+            if not piece.strip() or piece in {".", ".."}:
+                return False
+            normalized = "".join(character for character in piece.lower() if character.isalnum())
+            if any(fragment in normalized for fragment in RESTRICTED_SELECTOR_FRAGMENTS):
+                return False
+        return True
 
     @staticmethod
     def _version_tuple(value: str) -> tuple[int, int, int]:
@@ -654,6 +717,8 @@ class Validator:
             return MAX_IMAGE_BYTES
         if extension in {".wav", ".ogg"}:
             return MAX_AUDIO_BYTES
+        if extension == ".jfue":
+            return MAX_MAP_BYTES
         return MAX_SINGLE_FILE_BYTES
 
 
@@ -677,17 +742,33 @@ def validate_command(folder: Path) -> int:
 
 
 def pack_command(folder: Path, output: Path | None) -> int:
+    source_root = folder.resolve()
+    explicit_destination: Path | None = None
+    if output is not None:
+        explicit_destination = output
+        if explicit_destination.suffix.lower() != PACKAGE_EXTENSION:
+            explicit_destination = explicit_destination.with_suffix(PACKAGE_EXTENSION)
+        explicit_destination = explicit_destination.resolve()
+        try:
+            explicit_destination.relative_to(source_root)
+        except ValueError:
+            pass
+        else:
+            print("[FAILED] Package output must be outside the mod source folder.")
+            return 1
+
     validator = Validator(folder)
-    if not validator.validate():
-        for problem in validator.problems:
-            print(problem)
+    valid = validator.validate()
+    for problem in validator.problems:
+        print(problem)
+    if not valid:
         print("[FAILED] Package was not created.")
         return 1
 
     assert validator.manifest is not None
     mod_id = str(validator.manifest["id"])
     version = str(validator.manifest["version"])
-    destination = output or folder.parent / f"{mod_id}-{version}{PACKAGE_EXTENSION}"
+    destination = explicit_destination or folder.parent / f"{mod_id}-{version}{PACKAGE_EXTENSION}"
     if destination.suffix.lower() != PACKAGE_EXTENSION:
         destination = destination.with_suffix(PACKAGE_EXTENSION)
     destination = destination.resolve()
