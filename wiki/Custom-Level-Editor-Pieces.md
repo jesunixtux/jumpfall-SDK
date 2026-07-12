@@ -121,6 +121,7 @@ no sustituye silenciosamente el ID con una pieza diferente.
 ## Límites actuales
 
 - máximo 128 piezas por archivo de catálogo;
+- máximo 512 piezas registradas por mod y 4096 entre todos los mods activos;
 - sprites de hasta 32 MiB y 4096×4096 al decodificar;
 - no hay triggers personalizados en este contrato;
 - no hay prefabs o componentes personalizados;
