@@ -70,6 +70,9 @@ python3 jumpfall_sdk.py pack mi-primer-mod -o dist/mi-mod.jfmod
 ```
 
 `pack` siempre valida primero. Si existe un error, no genera el paquete.
+Las advertencias se muestran aunque el paquete sea válido y llegue a crearse.
+La salida debe quedar fuera de la carpeta fuente del mod; así el empaquetador no
+puede intentar incluir su propio `.jfmod`.
 
 ## Probar en JumpFall
 
@@ -365,6 +368,11 @@ Los selectores son rutas exactas y siempre comienzan con `/`:
 /Canvas/MainPanel/Title
 ```
 
+Se rechazan rutas con segmentos críticos relacionados con `player`, `rigidbody`,
+`collider`, `camera`, `spawn`, `loading`, `modruntime`, `modmanager`,
+`eventsystem` o `inputsystem`. La comparación ignora mayúsculas, espacios y
+guiones.
+
 ## Menús
 
 Superficies:
@@ -446,6 +454,7 @@ El SDK y el runtime rechazan:
 - paquetes o archivos sobre sus límites;
 - capacidades desconocidas;
 - Lua hasta que exista el sandbox oficial.
+- cualquier archivo `.lua`, incluso si no está declarado en el manifiesto.
 
 Límites:
 
@@ -456,7 +465,17 @@ Límites:
 | archivo individual | 128 MiB |
 | imagen | 32 MiB y 4096x4096 al decodificar |
 | audio | 64 MiB |
+| mapa `.jfue` | 16 MiB |
 | manifiesto | 256 KiB |
+
+Un mapa puede contener como máximo 10000 piezas, 2000 triggers, 256 fondos y 256
+pistas. Lua se fuerza a desactivado en la copia temporal de cualquier mapa
+cargado desde `.jfmod`.
+
+El manifiesto admite hasta 128 mapas, 16 archivos de Level Editor, 32 archivos de
+parches, 16 archivos de menús y 16 archivos de localización. Cada mod puede
+registrar como máximo 512 piezas del editor; el runtime limita el total activo a
+4096.
 
 ## Códigos de salida
 
