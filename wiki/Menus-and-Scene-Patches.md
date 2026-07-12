@@ -140,6 +140,10 @@ Canvas/MainPanel/Title
 
 Los nombres y mayúsculas deben coincidir. En una build distinta la jerarquía puede cambiar; un parche ausente produce advertencia y el resto del mod continúa.
 
+También se bloquean rutas cuyos segmentos señalen sistemas críticos: jugador,
+Rigidbody, Collider, cámara, spawn, carga, runtime/gestor de mods, EventSystem e
+InputSystem. Usa parches solo sobre UI y objetos visuales declarados como seguros.
+
 ## Recomendaciones
 
 - Mantén siempre una forma de jugar, volver o salir.
