@@ -61,6 +61,17 @@ Los paquetes `.jfmod` no se borran. Solo se desactivan dentro de `mod-profile.js
 ## `scene_patch.target_missing`
 
 La jerarquía no coincide. Los selectores son exactos y no usan búsqueda global.
+También se rechazan rutas hacia jugador, cámara, colliders, spawn, carga y
+sistemas internos. Elige un objeto visual o de UI no restringido.
+
+## `Package output must be outside the mod source folder`
+
+La ruta `-o` está dentro del proyecto que intentas empaquetar. Usa una carpeta
+hermana o la salida predeterminada, por ejemplo:
+
+```bash
+python3 jumpfall_sdk.py pack mi-mod -o dist/mi-mod.jfmod
+```
 
 ## `menu.load_map`
 
