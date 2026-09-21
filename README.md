@@ -420,13 +420,33 @@ actual usa IMGUI y mouse; la navegación completa con mando queda pendiente.
 }
 ```
 
-Idiomas reconocidos actualmente:
+Idiomas reconocidos (igual que el runtime del juego):
 
-- `English`;
-- `SpanishLatam`.
+- `English` (alias: `en`);
+- `SpanishLatam` (alias: `es`, `es-419`, `Spanish`, `spanish-latam`, `latam`, `espanol`);
+- `SpanishSpain` (alias: `es-ES`, `eses`, `espanolespana`);
+- `Portuguese` (alias: `pt`, `pt-BR`, `portugues`, `brazilian`).
 
-También se normalizan alias como `Spanish`, `spanish-latam`, `latam`, `es-419` y
-`es`.
+El SDK normaliza cada idioma como el juego y rechaza duplicados tras normalizar:
+`es` + `Spanish` es un duplicado (`spanishlatam`), no dos idiomas. Un idioma
+desconocido produce una advertencia `localization.unknown_language` porque el
+juego lo ignorará en silencio.
+
+Seguridad añadida del validador (además de lo ya documentado):
+
+- dimensiones reales PNG/JPEG (máx. 4096x4096 por lado, leídas de cabecera);
+- firmas `RIFF/WAVE` y `OggS` en audio;
+- nombres reservados de Windows (`CON`, `PRN`, `COM1`…), puntos/espacios finales
+  y colisiones sin distinguir mayúsculas;
+- rangos de dependencia con la misma gramática del runtime (`*`, `^`, `~`,
+  `>=`, `||`, wildcards `1.2.x`);
+- aviso si `gameVersion` queda fuera de la versión conocida por el SDK;
+- versión del mapa (rechaza futuro, avisa legacy) y límites de bosses
+  (8 por mapa, 128 nodos);
+- `scene`, `value`, `localizationKey` y color `#RRGGBB(AA)` en parches
+  (el runtime ignora colores inválidos sin avisar);
+- paquetes `.jfmod` deterministas (mismo hash si el contenido no cambia;
+  `SOURCE_DATE_EPOCH` para fijar la fecha).
 
 ## Ajustes del jugador
 

@@ -5,6 +5,18 @@ Todos los cambios relevantes del SDK se documentan aquí. El proyecto sigue
 
 ## Sin publicar
 
+- Seguridad: dimensiones PNG/JPEG (4096), firmas WAV/Ogg, nombres reservados de
+  Windows, puntos/espacios finales y colisiones case-insensitive.
+- Seguridad: rangos de dependencia validados con la gramática del runtime y
+  avisos `game_version.newer_required` / `older_supported`.
+- Estabilidad: versión del mapa (error en futuro, aviso en legacy), límites de
+  bosses (8/128 nodos, IDs duplicados) y referencias de fondos/pistas.
+- Estabilidad: `scene`, `value`, `localizationKey` y color en parches;
+  paquetes `.jfmod` deterministas (`SOURCE_DATE_EPOCH` soportado).
+- Multilenguaje: normalización a los 4 idiomas del juego con alias, duplicados
+  tras normalizar (`es` + `Spanish` colisionan) y aviso en idioma desconocido.
+- Plantilla con los 4 idiomas (`spanish-spain`, `portuguese` añadidos).
+- Tests de 11 a 24, incluido test de paridad de constantes con el editor de menús.
 - Bloqueo de salidas `.jfmod` dentro de la carpeta fuente.
 - Reglas de selectores críticos alineadas con el runtime.
 - Rechazo incondicional de archivos Lua en paquetes `.jfmod`.

@@ -22,6 +22,10 @@ SCHEMA_VERSION = "1.0.0"
 MANIFEST_NAME = "jumpfall.mod.json"
 PACKAGE_EXTENSION = ".jfmod"
 KNOWN_GAME_VERSION = "0.50.05"
+MAP_CURRENT_VERSION = 29
+MAX_IMAGE_DIMENSION = 4096
+MAX_BOSSES_PER_MAP = 8
+MAX_BOSS_NODES = 128
 
 MAX_PACKAGE_BYTES = 256 * 1024 * 1024
 MAX_EXPANDED_BYTES = 512 * 1024 * 1024
@@ -139,6 +143,32 @@ LEVEL_EDITOR_PIECE_BASE_IDS = {
     "plane_jump",
     "elevator",
 }
+WINDOWS_RESERVED_NAMES = {
+    "CON", "PRN", "AUX", "NUL",
+    *(f"COM{i}" for i in range(1, 10)),
+    *(f"LPT{i}" for i in range(1, 10)),
+}
+CANONICAL_LANGUAGES = ("english", "spanishlatam", "spanishspain", "portuguese")
+# Mirrors ModContentRuntime.NormalizeLanguage: punctuation/spacing removed,
+# then matched case-insensitively. Unknown input returns None.
+_LANGUAGE_ALIASES = {
+    "en": "english",
+    "english": "english",
+    "es": "spanishlatam",
+    "es419": "spanishlatam",
+    "spanish": "spanishlatam",
+    "spanishlatam": "spanishlatam",
+    "latam": "spanishlatam",
+    "espanol": "spanishlatam",
+    "eses": "spanishspain",
+    "spanishspain": "spanishspain",
+    "espanolespana": "spanishspain",
+    "pt": "portuguese",
+    "ptbr": "portuguese",
+    "portuguese": "portuguese",
+    "portugues": "portuguese",
+    "brazilian": "portuguese",
+}
 LEVEL_TRIGGER_IDS = {
     "limit_map",
     "deathzone",
@@ -225,6 +255,7 @@ class Validator:
     def _validate_package_tree(self) -> None:
         count = 0
         total = 0
+        seen_case_insensitive: set[str] = set()
         for path in self.root.rglob("*"):
             if self._is_ignored(path):
                 continue
@@ -244,6 +275,12 @@ class Validator:
             if extension in FORBIDDEN_EXTENSIONS or extension not in ALLOWED_EXTENSIONS:
                 self.error("package.extension", f"Unsupported file type: {relative}")
 
+            problem = self._tree_name_problem(relative, seen_case_insensitive)
+            if problem == "package.case_collision":
+                self.error(problem, f"Path collides case-insensitively (breaks on Windows/macOS): {relative}")
+            elif problem is not None:
+                self.error(problem, f"Unsafe file name for Windows extraction: {relative}")
+
             size = path.stat().st_size
             total += size
             if size > self._maximum_for_file(path):
@@ -251,6 +288,7 @@ class Validator:
             if total > MAX_EXPANDED_BYTES:
                 self.error("package.total_size", "Expanded package exceeds 512 MiB.")
                 break
+            self._validate_media_content(path, relative, extension)
 
     def _validate_manifest(self, manifest: dict[str, Any]) -> None:
         if manifest.get("schemaVersion") != SCHEMA_VERSION:
@@ -300,6 +338,21 @@ class Validator:
         if isinstance(minimum, str) and isinstance(maximum, str) and maximum:
             if self._version_tuple(maximum) < self._version_tuple(minimum):
                 self.error("game_version.range", "gameVersion.max cannot be lower than min.")
+        known = self._version_tuple(KNOWN_GAME_VERSION)
+        if isinstance(minimum, str) and GAME_VERSION_PATTERN.fullmatch(minimum):
+            if self._version_tuple(minimum) > known:
+                self.warning(
+                    "game_version.newer_required",
+                    f"gameVersion.min {minimum} is newer than SDK-known {KNOWN_GAME_VERSION}; "
+                    "current players cannot activate this mod.",
+                )
+        if isinstance(maximum, str) and maximum and GAME_VERSION_PATTERN.fullmatch(maximum):
+            if self._version_tuple(maximum) < known:
+                self.warning(
+                    "game_version.older_supported",
+                    f"gameVersion.max {maximum} is older than SDK-known {KNOWN_GAME_VERSION}; "
+                    "players on newer builds will be rejected as too_new.",
+                )
 
     def _validate_capabilities(self, value: Any) -> set[str]:
         if not isinstance(value, list):
@@ -338,7 +391,11 @@ class Validator:
                 self.error(f"{relation}.duplicate", f"Duplicate {relation}: {relation_id}")
             seen.add(relation_id)
             version = item.get("version", "*")
-            if not isinstance(version, str) or not version.strip():
+            if (
+                not isinstance(version, str)
+                or not version.strip()
+                or not self._is_valid_version_range(version)
+            ):
                 self.error(f"{relation}.version", f"Invalid version range for {relation_id}.")
 
     def _validate_content(
@@ -427,10 +484,25 @@ class Validator:
             language = item.get("language")
             if not isinstance(language, str) or not language.strip() or len(language) > 32:
                 self.error("localization.language", f"Invalid language at index {index}.")
-            elif language.lower() in languages:
-                self.error("localization.duplicate", f"Duplicate language: {language}")
+                continue
+            canonical = self._normalize_language(language)
+            if canonical is None:
+                self.warning(
+                    "localization.unknown_language",
+                    f"Unknown language '{language}' at index {index}; the game only "
+                    f"applies {', '.join(CANONICAL_LANGUAGES)} (aliases included) and will ignore this file.",
+                )
+                if language.lower() in languages:
+                    self.error("localization.duplicate", f"Duplicate language: {language}")
+                else:
+                    languages.add(language.lower())
+            elif canonical in languages:
+                self.error(
+                    "localization.duplicate",
+                    f"Duplicate language: '{language}' normalizes to '{canonical}', already declared.",
+                )
             else:
-                languages.add(language.lower())
+                languages.add(canonical)
             path = self._validate_reference(item.get("file"), {".json"}, "localization.file")
             if path:
                 self._validate_localization_file(path)
@@ -513,6 +585,22 @@ class Validator:
         data = self._load_json(path, "map.json")
         if not isinstance(data, dict):
             return
+        version = data.get("version")
+        if version is None:
+            self.warning("map.version_missing", f"{path.relative_to(self.root)} has no version; assuming legacy map.")
+        elif not isinstance(version, int) or isinstance(version, bool):
+            self.error("map.version", f"{path.relative_to(self.root)} version must be an integer.")
+        elif version > MAP_CURRENT_VERSION:
+            self.error(
+                "map.version_future",
+                f"{path.relative_to(self.root)} is version {version}; this SDK supports up to {MAP_CURRENT_VERSION}. "
+                "Newer maps must be rejected, never normalized.",
+            )
+        elif version < MAP_CURRENT_VERSION:
+            self.warning(
+                "map.version_legacy",
+                f"{path.relative_to(self.root)} is version {version}; current is {MAP_CURRENT_VERSION}.",
+            )
         pieces = data.get("pieces", [])
         if not isinstance(pieces, list):
             self.error("map.pieces", f"{path.relative_to(self.root)} pieces must be an array.")
@@ -537,13 +625,73 @@ class Validator:
             self._validate_map_triggers(path, triggers)
         if not isinstance(backgrounds, list) or len(backgrounds) > 256:
             self.error("map.background_count", f"{path.relative_to(self.root)} backgrounds must be an array with at most 256 entries.")
+        elif isinstance(backgrounds, list):
+            self._validate_map_asset_refs(path, backgrounds, "fileName", "map.background_asset")
         if not isinstance(tracks, list) or len(tracks) > 256:
             self.error("map.soundtrack_count", f"{path.relative_to(self.root)} soundtrack tracks must be an array with at most 256 entries.")
+        elif isinstance(tracks, list):
+            for track_index, track in enumerate(tracks):
+                if isinstance(track, dict) and "volume" in track:
+                    volume = track["volume"]
+                    if not self._number_in_range(volume, 0.0, 1.0):
+                        self.error("map.soundtrack_volume", f"{path.relative_to(self.root)} track {track_index} volume must be 0-1.")
+            self._validate_map_asset_refs(path, tracks, "fileName", "map.soundtrack_asset")
         self._validate_map_ghosts(path, ghosts)
+        self._validate_map_bosses(path, data.get("bosses", []))
         self._validate_map_lights(path, data.get("lights"), triggers)
         lua = data.get("lua")
         if isinstance(lua, dict) and lua.get("enabled"):
             self.warning("map.lua_disabled", f"Lua is enabled in {path.relative_to(self.root)} but will be disabled in .jfmod runtime.")
+
+    def _validate_map_asset_refs(self, path: Path, entries: list[Any], field: str, code: str) -> None:
+        """Background/track fileName should resolve inside the package (warning-level)."""
+        for index, entry in enumerate(entries):
+            if not isinstance(entry, dict):
+                continue
+            raw = entry.get(field)
+            if not raw:
+                continue
+            if not isinstance(raw, str):
+                self.warning(code, f"{path.relative_to(self.root)} entry {index} has a non-string {field}.")
+                continue
+            candidate = (self.root / Path(raw.replace("\\", "/"))).resolve()
+            try:
+                candidate.relative_to(self.root)
+                exists = candidate.is_file()
+            except ValueError:
+                exists = False
+            if not exists:
+                sibling = (path.parent / Path(raw.replace("\\", "/"))).resolve()
+                try:
+                    sibling.relative_to(self.root)
+                    exists = sibling.is_file()
+                except ValueError:
+                    exists = False
+            if not exists:
+                self.warning(code, f"{path.relative_to(self.root)} entry {index} references missing asset: {raw}")
+
+    def _validate_map_bosses(self, path: Path, bosses: Any) -> None:
+        relative = path.relative_to(self.root)
+        if not isinstance(bosses, list):
+            self.error("map.boss_count", f"{relative} bosses must be an array with at most {MAX_BOSSES_PER_MAP} entries.")
+            return
+        if len(bosses) > MAX_BOSSES_PER_MAP:
+            self.error("map.boss_count", f"{relative} contains more than {MAX_BOSSES_PER_MAP} bosses.")
+        seen: set[str] = set()
+        for index, boss in enumerate(bosses):
+            if not isinstance(boss, dict):
+                self.error("map.boss", f"{relative} boss {index} must be an object.")
+                continue
+            object_id = boss.get("objectId")
+            if not isinstance(object_id, str) or not object_id.strip():
+                self.warning("map.boss_id", f"{relative} boss {index} has no objectId; triggers cannot target it.")
+            elif object_id in seen:
+                self.error("map.boss_duplicate", f"{relative} duplicate boss objectId: {object_id}")
+            else:
+                seen.add(object_id)
+            nodes = boss.get("nodes", [])
+            if not isinstance(nodes, list) or len(nodes) > MAX_BOSS_NODES:
+                self.error("map.boss_nodes", f"{relative} boss {index} nodes must be an array with at most {MAX_BOSS_NODES} entries.")
 
     def _validate_map_triggers(self, path: Path, triggers: list[Any]) -> None:
         relative = path.relative_to(self.root)
@@ -715,6 +863,15 @@ class Validator:
             selector = patch.get("target")
             if not self._safe_selector(selector):
                 self.error("scene_patch.target", f"Patch target must be an exact, non-restricted path beginning with '/': {selector}")
+            scene = patch.get("scene", "*")
+            if not isinstance(scene, str) or not scene.strip() or len(scene) > 128:
+                self.error("scene_patch.scene", f"Patch scene must be '*' or a name up to 128 characters at index {index}.")
+            value = patch.get("value", "")
+            if not isinstance(value, str) or len(value) > 4096:
+                self.error("scene_patch.value", f"Patch value must be a string up to 4096 characters at index {index}.")
+            localization_key = patch.get("localizationKey", "")
+            if not isinstance(localization_key, str) or len(localization_key) > 256:
+                self.error("scene_patch.localization_key", f"Patch localizationKey must be a string up to 256 characters at index {index}.")
             self._require_capability(True, "audio" if str(operation).startswith("set_audio") else "visuals", capabilities)
             if operation == "set_sprite":
                 self._validate_reference(patch.get("asset"), {".png", ".jpg", ".jpeg"}, "scene_patch.asset")
@@ -724,6 +881,9 @@ class Validator:
                 volume = patch.get("numberValue", 1.0)
                 if not isinstance(volume, (int, float)) or not 0 <= float(volume) <= 1:
                     self.error("scene_patch.volume", "Audio volume must be between 0 and 1.")
+            elif operation == "set_color":
+                if not isinstance(value, str) or not COLOR_PATTERN.fullmatch(value):
+                    self.error("scene_patch.color", f"set_color value must be #RRGGBB or #RRGGBBAA at index {index} (runtime ignores invalid colors).")
 
     def _validate_menu_file(self, path: Path, map_ids: set[str], capabilities: set[str]) -> None:
         data = self._load_json(path, "menu.json")
@@ -895,6 +1055,185 @@ class Validator:
         return int(pieces[0]), int(pieces[1]), int(pieces[2])
 
     @staticmethod
+    def _tree_name_problem(relative: Path, seen_case_insensitive: set[str]) -> str | None:
+        lowered = relative.as_posix().lower()
+        if lowered in seen_case_insensitive:
+            return "package.case_collision"
+        seen_case_insensitive.add(lowered)
+        for part in relative.parts:
+            stem = part.rsplit(".", 1)[0] if "." in part else part
+            if stem.upper() in WINDOWS_RESERVED_NAMES:
+                return "package.reserved_name"
+            if part != part.strip() or part.endswith("."):
+                return "package.trailing_name"
+        return None
+
+    def _validate_media_content(self, path: Path, relative: Path, extension: str) -> None:
+        if extension in {".png", ".jpg", ".jpeg"}:
+            try:
+                dimensions = self._image_dimensions(path, extension)
+            except OSError as exc:
+                self.warning("package.image_unreadable", f"{relative}: cannot read image header ({exc})")
+                return
+            if dimensions is None:
+                self.error("package.image_magic", f"{relative} is not a valid PNG/JPEG file.")
+            else:
+                width, height = dimensions
+                if width < 1 or height < 1 or width > MAX_IMAGE_DIMENSION or height > MAX_IMAGE_DIMENSION:
+                    self.error(
+                        "package.image_dimensions",
+                        f"{relative} is {width}x{height}; images must be 1-4096 px per side.",
+                    )
+        elif extension in {".wav", ".ogg"}:
+            try:
+                with open(path, "rb") as handle:
+                    magic = handle.read(12)
+            except OSError as exc:
+                self.warning("package.audio_unreadable", f"{relative}: cannot read audio header ({exc})")
+                return
+            valid = magic[:4] == b"OggS" if extension == ".ogg" else (
+                len(magic) >= 12 and magic[:4] == b"RIFF" and magic[8:12] == b"WAVE"
+            )
+            if not valid:
+                self.error("package.audio_magic", f"{relative} is not a valid {'Ogg' if extension == '.ogg' else 'WAV'} file.")
+
+    @staticmethod
+    def _image_dimensions(path: Path, extension: str) -> tuple[int, int] | None:
+        """Read PNG/JPEG dimensions from headers only (stdlib, no image deps)."""
+        with open(path, "rb") as handle:
+            if extension == ".png":
+                header = handle.read(33)
+                if len(header) < 33 or header[:8] != b"\x89PNG\r\n\x1a\n":
+                    return None
+                if header[12:16] != b"IHDR":
+                    return None
+                return int.from_bytes(header[16:20], "big"), int.from_bytes(header[20:24], "big")
+            if handle.read(2) != b"\xff\xd8":
+                return None
+            budget = 1024 * 1024
+            while budget > 0:
+                marker_start = handle.read(1)
+                budget -= 1
+                if not marker_start:
+                    return None
+                if marker_start != b"\xff":
+                    continue
+                marker = handle.read(1)
+                budget -= 1
+                if not marker or marker == b"\x00":
+                    continue
+                code = marker[0]
+                if code == 0xD8 or code == 0xD9 or 0xD0 <= code <= 0xD7 or code == 0x01:
+                    continue
+                length_bytes = handle.read(2)
+                budget -= 2
+                if len(length_bytes) < 2:
+                    return None
+                length = int.from_bytes(length_bytes, "big")
+                if length < 2:
+                    return None
+                if code in (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7,
+                            0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF):
+                    body = handle.read(5)
+                    if len(body) < 5:
+                        return None
+                    return (
+                        int.from_bytes(body[3:5], "big"),
+                        int.from_bytes(body[1:3], "big"),
+                    )
+                handle.seek(length - 2, 1)
+                budget -= length - 2
+            return None
+        return None
+
+    @staticmethod
+    def _normalize_language(value: str) -> str | None:
+        """Mirror ModContentRuntime.NormalizeLanguage; None = unknown to the game."""
+        normalized = re.sub(r"[-_ ]", "", value.strip().lower())
+        return _LANGUAGE_ALIASES.get(normalized)
+
+    @classmethod
+    def _is_valid_version_range(cls, value: str) -> bool:
+        """Mirror ModVersionRange.TryValidate: *, ||, space/comma tokens, ^ ~ ops, wildcards."""
+        text = value.strip()
+        if not text or text == "*":
+            return True
+        for alternative in text.split("||"):
+            normalized = alternative.replace(",", " ").strip()
+            if not normalized:
+                return False
+            if not all(cls._is_valid_range_token(token) for token in normalized.split()):
+                return False
+        return True
+
+    @classmethod
+    def _is_valid_range_token(cls, token: str) -> bool:
+        if token == "*" or token.lower() == "x":
+            return True
+        if token.startswith("^") or token.startswith("~"):
+            return (
+                len(token) > 1
+                and token[1] not in "^~"
+                and cls._parse_semver(token[1:]) is not None
+            )
+        value = token
+        for operator in (">=", "<=", ">", "<", "="):
+            if token.startswith(operator):
+                value = token[len(operator):]
+                break
+        if not value or value[0] in "><=^~":
+            return False
+        if "*" in value or "x" in value or "X" in value:
+            return cls._is_valid_wildcard(value)
+        return cls._parse_semver(value) is not None
+
+    @staticmethod
+    def _parse_semver(value: str) -> tuple[int, int, int, tuple, tuple] | None:
+        """Mirror ModSemVersion.TryParse (strict: no leading zeros, prerelease rules)."""
+        text = value.strip()
+        if text[:1].lower() == "v":
+            text = text[1:]
+        build_index = text.find("+")
+        if build_index >= 0:
+            if build_index == len(text) - 1 or "+" in text[build_index + 1:]:
+                return None
+            for identifier in text[build_index + 1:].split("."):
+                if not identifier or not all(c.isalnum() or c == "-" for c in identifier):
+                    return None
+            text = text[:build_index]
+        prerelease: tuple = ()
+        dash_index = text.find("-")
+        if dash_index >= 0:
+            for identifier in text[dash_index + 1:].split("."):
+                if not identifier or not all(c.isalnum() or c == "-" for c in identifier):
+                    return None
+            prerelease = tuple(text[dash_index + 1:].split("."))
+            text = text[:dash_index]
+        pieces = text.split(".")
+        if len(pieces) != 3:
+            return None
+        numbers = []
+        for piece in pieces:
+            if not piece or (len(piece) > 1 and piece[0] == "0") or not piece.isdigit():
+                return None
+            numbers.append(int(piece))
+        return (numbers[0], numbers[1], numbers[2], prerelease, ())
+
+    @staticmethod
+    def _is_valid_wildcard(value: str) -> bool:
+        pieces = value.split(".")
+        if not 1 <= len(pieces) <= 3:
+            return False
+        saw_wildcard = False
+        for piece in pieces:
+            if piece == "*" or piece.lower() == "x":
+                saw_wildcard = True
+                continue
+            if saw_wildcard or not piece or (len(piece) > 1 and piece[0] == "0") or not piece.isdigit():
+                return False
+        return saw_wildcard
+
+    @staticmethod
     def _is_ignored(path: Path) -> bool:
         return path.name in IGNORED_NAMES or "__MACOSX" in path.parts or "__pycache__" in path.parts
 
@@ -967,9 +1306,24 @@ def pack_command(folder: Path, output: Path | None) -> int:
     if destination.exists():
         destination.unlink()
 
+    import datetime
+
+    source_date_epoch = os.environ.get("SOURCE_DATE_EPOCH", "").strip()
+    try:
+        fixed_date = datetime.datetime.fromtimestamp(int(source_date_epoch), tz=datetime.timezone.utc)
+    except (ValueError, OverflowError, OSError):
+        fixed_date = datetime.datetime(2020, 1, 1, tzinfo=datetime.timezone.utc)
+    fixed_stamp = (fixed_date.year, fixed_date.month, fixed_date.day,
+                   fixed_date.hour, fixed_date.minute, fixed_date.second)
+
     with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
         for path in iter_package_files(folder.resolve()):
-            archive.write(path, path.relative_to(folder.resolve()).as_posix())
+            arcname = path.relative_to(folder.resolve()).as_posix()
+            info = zipfile.ZipInfo(arcname, date_time=fixed_stamp)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.create_system = 0
+            info.external_attr = 0o644 << 16
+            archive.writestr(info, path.read_bytes())
 
     if destination.stat().st_size > MAX_PACKAGE_BYTES:
         destination.unlink(missing_ok=True)

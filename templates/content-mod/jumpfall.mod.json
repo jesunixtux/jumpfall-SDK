@@ -38,6 +38,14 @@
       {
         "language": "SpanishLatam",
         "file": "content/localization/spanish-latam.json"
+      },
+      {
+        "language": "SpanishSpain",
+        "file": "content/localization/spanish-spain.json"
+      },
+      {
+        "language": "Portuguese",
+        "file": "content/localization/portuguese.json"
       }
     ],
     "scripts": [],
