@@ -21,6 +21,13 @@ El SDK mínimo incluye:
 
 El runtime objetivo es JumpFall `0.50.05` con schema y SDK `1.0.0`.
 
+Para mapas, las herramientas oficiales son el Level Editor de JumpFall y el
+convertidor de desarrollo `JMAP -> .unity`. Los `.jfue` creados por el editor
+pueden incluir boss graphs y grabaciones ghost-player con estados de animación; el SDK los valida y
+empaqueta como parte del mapa, pero no reemplaza el editor ni convierte JMAP. El
+ghost usa la apariencia del player instanciado y, en PC, la JVSK activa del
+usuario; el mapa no empaqueta ni impone esa skin.
+
 ## Requisitos
 
 - Python **3.10 o superior**;
@@ -92,18 +99,6 @@ Después:
 
 En Unity Editor, detén Play Mode y vuelve a iniciarlo porque el reinicio automático
 está deshabilitado allí.
-
-## Steam Workshop
-
-El flujo de Workshop para mods `.jfmod` esta documentado en:
-
-```text
-README_WORKSHOP.md
-```
-
-Resumen rapido: publica el `.jfmod` generado por el SDK en el item de Steam
-Workshop. JumpFall lo copiara a `Documents/jumpfall/mods/packages/workshop/` y
-lo mostrara en el gestor de mods con `F10`.
 
 Argumentos de modo seguro:
 
@@ -527,3 +522,31 @@ Un cambio del contrato debe actualizar conjuntamente:
 
 No documentes como terminada una capacidad que todavía no haya sido compilada y
 probada en una build real.
+
+
+## Iluminación dinámica opcional en mapas v29
+
+`lights` contiene el contrato propio `LightData`: identidad, nombre, `px/py/rotZ`,
+`startsOn`, `shape` (radial/spot/rectangle/freeform), dimensiones, `range`,
+intensidad, color RGBA, falloff, radios/ángulos internos, orden, blend style y
+vértices locales normalizados. `range` es el radio exterior en Radial/Spot y la
+distancia de borde en Rectangle/Freeform. No hay referencias Unity en el JSON.
+`lightingEnabled` ausente conserva el modo clásico; `lights` ausente/null es vacío.
+
+Un trigger `id: "light"` reutiliza `eventAction: "set_light"`,
+`eventTargetObjectId` y `eventValue: "on" | "off" | "toggle"`. El destino se resuelve
+solo dentro del mapa. Un destino perdido no ejecuta nada y avisa una vez.
+IDs duplicados se reparan; los destinos ambiguos quedan vacíos para reasignarlos.
+No se cambia la versión del mapa ni el manifiesto `.jfmod`.
+
+Los paquetes de mods aceptan hasta 256 luces. Runtime y SDK comparten ese límite;
+el editor no trunca silenciosamente listas al guardar. El ejemplo optativo está
+en `Tools/jumpfall-sdk/templates/content-mod/examples/lighting.jfue` (desde la raíz
+del repositorio); no se incorpora automáticamente a `content.maps` de la plantilla.
+El JSON Schema incluye los campos de iluminación y el reporte de construcción
+admite registros `kind: "light"`.
+
+Los mapas con luces deben editarse con una versión del juego que soporte estas
+extensiones opcionales. La edición avanzada se hace desde Ctrl + L en PC; el
+editor multiplataforma conserva estos objetos protegidos. No se añaden Lua,
+scripts externos, sombras ni sincronización de red.

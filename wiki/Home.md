@@ -16,7 +16,7 @@ Esta wiki cubre los cuatro sistemas de contenido que existen actualmente:
 - Juego conocido por el runtime: `0.50.05`
 - Schema `.jfmod`: `1.0.0`
 - SDK: `1.0.0`
-- Formato `LevelData`: versión `16`
+- Formato `LevelData`: versión `29`
 - Unity del proyecto: `6000.3.8f1` — Unity 6.3
 
 ## Plataformas

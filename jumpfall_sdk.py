@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -30,6 +31,9 @@ MAX_IMAGE_BYTES = 32 * 1024 * 1024
 MAX_AUDIO_BYTES = 64 * 1024 * 1024
 MAX_MAP_BYTES = 16 * 1024 * 1024
 MAX_FILES = 2000
+MAX_GHOSTS_PER_MAP = 32
+MAX_GHOST_FRAMES = 18000
+MAX_GHOST_SECONDS = 600.0
 
 ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]{2,63}$")
 CONTENT_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
@@ -134,6 +138,30 @@ LEVEL_EDITOR_PIECE_BASE_IDS = {
     "orb_jump",
     "plane_jump",
     "elevator",
+}
+LEVEL_TRIGGER_IDS = {
+    "limit_map",
+    "deathzone",
+    "changelevel",
+    "finish_level",
+    "lua_event",
+    "static_camera",
+    "visibility",
+    "event",
+    "timer",
+    "wall_jump",
+    "light",
+}
+LEVEL_EVENT_ACTIONS = {
+    "set_light",
+    "set_active",
+    "set_renderer",
+    "set_collider",
+    "animator_trigger",
+    "animator_bool",
+    "animator_play",
+    "finish_level",
+    "level_event",
 }
 CONTENT_ARRAY_LIMITS = {
     "maps": 128,
@@ -498,19 +526,173 @@ class Validator:
                 self.error("map.piece_id", f"Unknown piece id in {path.relative_to(self.root)} at index {index}: {piece_id}")
         triggers = data.get("triggers", [])
         backgrounds = data.get("backgrounds", [])
+        ghosts = data.get("ghosts", [])
         soundtrack = data.get("soundtrack", {})
         tracks = soundtrack.get("tracks", []) if isinstance(soundtrack, dict) else []
         if len(pieces) > 10000:
             self.error("map.piece_count", f"{path.relative_to(self.root)} contains more than 10000 pieces.")
         if not isinstance(triggers, list) or len(triggers) > 2000:
             self.error("map.trigger_count", f"{path.relative_to(self.root)} triggers must be an array with at most 2000 entries.")
+        elif isinstance(triggers, list):
+            self._validate_map_triggers(path, triggers)
         if not isinstance(backgrounds, list) or len(backgrounds) > 256:
             self.error("map.background_count", f"{path.relative_to(self.root)} backgrounds must be an array with at most 256 entries.")
         if not isinstance(tracks, list) or len(tracks) > 256:
             self.error("map.soundtrack_count", f"{path.relative_to(self.root)} soundtrack tracks must be an array with at most 256 entries.")
+        self._validate_map_ghosts(path, ghosts)
+        self._validate_map_lights(path, data.get("lights"), triggers)
         lua = data.get("lua")
         if isinstance(lua, dict) and lua.get("enabled"):
             self.warning("map.lua_disabled", f"Lua is enabled in {path.relative_to(self.root)} but will be disabled in .jfmod runtime.")
+
+    def _validate_map_triggers(self, path: Path, triggers: list[Any]) -> None:
+        relative = path.relative_to(self.root)
+        for index, trigger in enumerate(triggers):
+            if not isinstance(trigger, dict):
+                self.error("map.trigger", f"{relative} trigger {index} must be an object.")
+                continue
+
+            trigger_id = trigger.get("id")
+            if trigger_id not in LEVEL_TRIGGER_IDS:
+                self.error("map.trigger_id", f"Unknown trigger id in {relative} at index {index}: {trigger_id}")
+                continue
+            if trigger_id not in {"event", "timer", "light"}:
+                continue
+
+            action = trigger.get("eventAction", "set_active")
+            if action not in LEVEL_EVENT_ACTIONS:
+                self.error("map.event_action", f"Unsafe or unknown event action in {relative} at trigger {index}: {action}")
+            delay = trigger.get("eventDelaySeconds", 0.0)
+            if not self._number_in_range(delay, 0.0, 3600.0):
+                self.error("map.event_delay", f"Event delay in {relative} at trigger {index} must be 0-3600 seconds.")
+            if action == "level_event":
+                event_id = trigger.get("eventId")
+                if not isinstance(event_id, str) or not CONTENT_ID_PATTERN.fullmatch(event_id):
+                    self.error("map.event_id", f"Invalid safe eventId in {relative} at trigger {index}: {event_id}")
+
+    def _validate_map_lights(self, path: Path, lights: Any, triggers: Any) -> None:
+        # Optional v29 addition. Legacy maps and null lists remain valid.
+        if lights is None:
+            lights = []
+        relative = path.relative_to(self.root)
+        if not isinstance(lights, list) or len(lights) > 256:
+            self.error("map.light_count", f"{relative} lights must be an array of at most 256 lights in mods.")
+            return
+        ids: set[str] = set()
+        for index, light in enumerate(lights):
+            if not isinstance(light, dict):
+                self.error("map.light", f"{relative} light {index} must be an object.")
+                continue
+            object_id = light.get("objectId")
+            if not isinstance(object_id, str) or not object_id or object_id in ids:
+                self.error("map.light_id", f"{relative} light {index} needs a unique objectId.")
+            else:
+                ids.add(object_id)
+            shape = light.get("shape", "radial")
+            if not isinstance(shape, str) or shape not in {"radial", "spot", "rectangle", "freeform"}:
+                self.error("map.light_shape", f"{relative} light {index} has unknown shape: {shape}")
+            limits = {"px": (-100000, 100000), "py": (-100000, 100000), "rotZ": (0, 360),
+                      "width": (0.05, 200), "height": (0.05, 200),
+                      "range": (0.05 if shape in ("radial", "spot") else 0, 200),
+                      "intensity": (0, 8), "falloff": (0, 1), "innerRadius": (0, 200),
+                      "innerAngle": (0, 360), "outerAngle": (1, 360),
+                      "lightOrder": (-32767, 32767), "blendStyle": (0, 3)}
+            for key, (minimum, maximum) in limits.items():
+                if key in light and not self._number_in_range(light[key], minimum, maximum):
+                    self.error("map.light_value", f"{relative} light {index} {key} must be finite in [{minimum}, {maximum}].")
+            for key in ("lightOrder", "blendStyle"):
+                if key in light and (not isinstance(light[key], int) or isinstance(light[key], bool)):
+                    self.error("map.light_value", f"{relative} light {index} {key} must be an integer.")
+            if "color" in light:
+                color = light["color"]
+                if not isinstance(color, dict) or any(not self._number_in_range(color.get(channel), 0, 1) for channel in "rgba"):
+                    self.error("map.light_color", f"{relative} light {index} requires RGBA channels in [0, 1].")
+            if "vertices" in light:
+                vertices = light["vertices"]
+                if not isinstance(vertices, list) or not 3 <= len(vertices) <= 32 or any(
+                    not isinstance(v, dict) or not self._number_in_range(v.get("x"), -0.5, 0.5) or
+                    not self._number_in_range(v.get("y"), -0.5, 0.5) for v in vertices
+                ):
+                    self.error("map.light_vertices", f"{relative} light {index} requires 3-32 normalized vertices.")
+        for index, trigger in enumerate(triggers if isinstance(triggers, list) else []):
+            if not isinstance(trigger, dict) or not (trigger.get("id") == "light" or trigger.get("eventAction") == "set_light"):
+                continue
+            if trigger.get("eventAction") != "set_light" or trigger.get("eventValue", "on") not in ("on", "off", "toggle"):
+                self.error("map.light_action", f"{relative} trigger {index} requires set_light with on/off/toggle.")
+            target = trigger.get("eventTargetObjectId")
+            if not isinstance(target, str) or target not in ids:
+                self.warning("map.light_target", f"{relative} trigger {index} has no valid light target; it will safely do nothing.")
+
+    def _validate_map_ghosts(self, path: Path, ghosts: Any) -> None:
+        relative = path.relative_to(self.root)
+        if not isinstance(ghosts, list):
+            self.error("map.ghost_count", f"{relative} ghosts must be an array with at most {MAX_GHOSTS_PER_MAP} entries.")
+            return
+        if len(ghosts) > MAX_GHOSTS_PER_MAP:
+            self.error("map.ghost_count", f"{relative} contains more than {MAX_GHOSTS_PER_MAP} ghost players.")
+
+        names: set[str] = set()
+        for index, ghost in enumerate(ghosts):
+            if not isinstance(ghost, dict):
+                self.error("map.ghost", f"{relative} ghost {index} must be an object.")
+                continue
+
+            name = ghost.get("displayName")
+            if not isinstance(name, str) or not CONTENT_ID_PATTERN.fullmatch(name):
+                self.error("map.ghost_name", f"Invalid ghost displayName in {relative} at index {index}: {name}")
+            elif name in names:
+                self.error("map.ghost_duplicate", f"Duplicate ghost displayName in {relative}: {name}")
+            else:
+                names.add(name)
+
+            ranges = {
+                "startDelay": (0.0, 3600.0),
+                "playbackSpeed": (0.05, 8.0),
+                "opacity": (0.05, 1.0),
+                "sampleInterval": (1.0 / 60.0, 0.25),
+            }
+            for field, (minimum, maximum) in ranges.items():
+                value = ghost.get(field, minimum)
+                if not self._number_in_range(value, minimum, maximum):
+                    self.error("map.ghost_range", f"{field} is outside {minimum}-{maximum} in {relative} ghost {index}.")
+            for field in ("autoPlay", "loop", "visible"):
+                if field in ghost and not isinstance(ghost[field], bool):
+                    self.error("map.ghost_type", f"{field} must be boolean in {relative} ghost {index}.")
+            sorting_order = ghost.get("sortingOrder", 120)
+            if not isinstance(sorting_order, int) or isinstance(sorting_order, bool) or not -1000 <= sorting_order <= 30000:
+                self.error("map.ghost_range", f"sortingOrder must be an integer from -1000 to 30000 in {relative} ghost {index}.")
+
+            frames = ghost.get("frames")
+            if not isinstance(frames, list):
+                self.error("map.ghost_frames", f"{relative} ghost {index} frames must be an array.")
+                continue
+            if len(frames) < 2:
+                self.error("map.ghost_frames", f"{relative} ghost {index} must contain at least two frames.")
+            if len(frames) > MAX_GHOST_FRAMES:
+                self.error("map.ghost_frames", f"{relative} ghost {index} contains more than {MAX_GHOST_FRAMES} frames.")
+
+            previous_time = 0.0
+            for frame_index, frame in enumerate(frames):
+                if not isinstance(frame, dict):
+                    self.error("map.ghost_frame", f"{relative} ghost {index} frame {frame_index} must be an object.")
+                    continue
+                time_value = frame.get("time")
+                if not self._number_in_range(time_value, previous_time, MAX_GHOST_SECONDS):
+                    self.error("map.ghost_time", f"Invalid or non-monotonic time in {relative} ghost {index} frame {frame_index}.")
+                else:
+                    previous_time = float(time_value)
+                for field in ("px", "py", "rotZ", "sx", "sy"):
+                    if not self._is_number(frame.get(field)):
+                        self.error("map.ghost_frame", f"Invalid {field} in {relative} ghost {index} frame {frame_index}.")
+                for field in ("sx", "sy"):
+                    if self._is_number(frame.get(field)) and not 0.01 <= float(frame[field]) <= 100.0:
+                        self.error("map.ghost_scale", f"Invalid {field} scale in {relative} ghost {index} frame {frame_index}.")
+                animator_hash = frame.get("animatorStateHash", 0)
+                if not isinstance(animator_hash, int) or isinstance(animator_hash, bool):
+                    self.error("map.ghost_animation", f"Invalid animatorStateHash in {relative} ghost {index} frame {frame_index}.")
+                animator_time = frame.get("animatorNormalizedTime", 0.0)
+                if not self._number_in_range(animator_time, 0.0, 100000.0):
+                    self.error("map.ghost_animation", f"Invalid animatorNormalizedTime in {relative} ghost {index} frame {frame_index}.")
 
     def _validate_patch_file(self, path: Path, capabilities: set[str]) -> None:
         data = self._load_json(path, "scene_patch.json")
@@ -678,7 +860,15 @@ class Validator:
 
     @staticmethod
     def _is_number(value: Any) -> bool:
-        return isinstance(value, (int, float)) and not isinstance(value, bool)
+        return (
+            isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and math.isfinite(float(value))
+        )
+
+    @classmethod
+    def _number_in_range(cls, value: Any, minimum: float, maximum: float) -> bool:
+        return cls._is_number(value) and minimum <= float(value) <= maximum
 
     @classmethod
     def _valid_optional_scale(cls, value: Any) -> bool:

@@ -1,0 +1,44 @@
+{
+  "version": 29,
+  "gridSize": 1,
+  "spawnPoint": {
+    "x": 0,
+    "y": 0
+  },
+  "pieces": [],
+  "lightingEnabled": true,
+  "ambientLightIntensity": 0.35,
+  "lights": [
+    {
+      "objectId": "hallway_light",
+      "displayName": "Hallway Light",
+      "shape": "radial",
+      "startsOn": false,
+      "px": 4,
+      "py": 3,
+      "range": 6,
+      "intensity": 1.2,
+      "color": {
+        "r": 1,
+        "g": 0.75,
+        "b": 0.35,
+        "a": 1
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "objectId": "hallway_switch",
+      "id": "light",
+      "px": 2,
+      "py": 1,
+      "sx": 2,
+      "sy": 2,
+      "eventTargetObjectId": "hallway_light",
+      "eventAction": "set_light",
+      "eventValue": "toggle",
+      "eventOnlyOnce": false,
+      "eventDisableAfterUse": false
+    }
+  ]
+}

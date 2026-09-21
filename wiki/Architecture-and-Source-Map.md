@@ -31,6 +31,39 @@ Responsabilidades del conjunto:
 
 `ModContentRuntime` aplica contenido validado y nunca carga ensamblados del paquete. Busca nuevos `PlayerMovement` periódicamente para aplicar tuning a jugadores creados al cambiar de escena.
 
+### PlayerMovement y estados runtime
+
+El componente público sigue siendo `PlayerMovement`, pero su implementación está
+dividida en parciales dentro de `Assets/script/player/`. Esta división conserva
+la serialización del prefab y la API que consumen triggers, móvil, multiplayer,
+skins y el Level Editor:
+
+```text
+PlayerMovement.cs                 ciclo Unity, sensores y movimiento base
+PlayerMovementStateMachine.cs     estados de vida, locomoción y acción
+PlayerMovement.Input.cs           Input System y control externo
+PlayerMovement.Dash.cs            dash terrestre/aéreo
+PlayerMovement.Punch.cs           punch
+PlayerMovement.Knockback.cs       knockback
+PlayerMovement.Jetpack.cs         jetpack
+PlayerMovement.Swim.cs            arrastre horizontal experimental y Player_Swim
+PlayerMovement.Life.cs            daño, vida, muerte y respawn
+PlayerMovement.Presentation.cs    Animator y efectos visuales
+PlayerMovement.Debug.cs           diagnóstico y overlay
+```
+
+`PlayerMovementStateMachine` mantiene tres dimensiones para no crear un enum con
+todas las combinaciones posibles: `Alive/Dead`, `Grounded/Airborne/WallStick/
+WallSlide` y las acciones `Free/DashGround/DashAir/Punch/Knockback/
+ExternalLaunch` y `Swim`. Dash, punch, arrastre y knockback ya reservan y liberan acciones mediante
+transiciones. Los flags históricos siguen como capa de compatibilidad mientras
+se completa la migración de paredes, lanzamientos externos y física base.
+
+Los cambios en este componente deben validarse dentro de Unity `6000.3.8f1` y
+probar el prefab de jugador tanto en escenas manuales como en la cadena
+`.jmap` -> `.jfue` -> `.unity`; una compilación aislada del SDK no cubre este
+contrato.
+
 ## SDK
 
 ```text
@@ -73,13 +106,24 @@ Assets/script/player/LEVELEDITOR/
 
 Archivos centrales:
 
-- `LevelData.cs`: contrato serializado, versión 16.
+- `LevelData.cs`: contrato serializado, versión 29.
+- `LevelSerializationResults.cs`: resultados explícitos y rechazo de versiones futuras.
 - `LevelSerializer.cs`: rutas, save/load, `.jmap`, `.jfue`, `.jsm`.
 - `LevelPieceDatabase.cs`: lookup de piezas.
 - `LevelPieceDatabase.asset`: IDs reales disponibles.
 - `RuntimeLevelBuilder.cs`: instancia fondos, piezas, triggers, soundtrack y datos runtime.
+- `RuntimeLevelBuildReport.cs`: contrato neutral y ordenado del resultado del builder.
 - `LevelTriggerDatabase`: lookup de triggers.
 - `PlaytestScene` y controladores del editor: interacción visual y teclas.
+
+`RuntimeLevelBuilder.BuildWithReport` comparte la misma ruta de construcción que
+`Build`. Sus fixtures neutrales, catálogo de definiciones y salida esperada están
+en `Tools/jumpfall-sdk/fixtures/runtime-builder/`, para que una futura
+implementación Godot pueda comprobar el mismo comportamiento sin copiar
+componentes Unity.
+
+La frontera de portabilidad y los perfiles de capacidades se documentan en
+[Engine portability](Engine-Portability).
 
 Configuración runtime:
 

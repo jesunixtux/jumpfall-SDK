@@ -14,6 +14,12 @@ Las skins personales están habilitadas solamente cuando compila `UNITY_STANDALO
 
 Android e iOS restauran el sprite base y deshabilitan el sistema personal.
 
+Los ghost-players usan automáticamente la JVSK activa en PC. Muestrean sus
+frames de forma determinista a partir del estado/tiempo de Animator grabado, sin
+copiar `SkinModManager` ni guardar la skin dentro del mapa. Por eso cambiar la
+skin desde el menú cambia también el aspecto de los ghosts al volver a cargar o
+probar el mapa. En móvil los ghosts muestran el sprite base.
+
 ## Carpetas
 
 ```text

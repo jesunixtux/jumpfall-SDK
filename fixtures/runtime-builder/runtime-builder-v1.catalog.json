@@ -1,0 +1,8 @@
+{
+  "pieces": [
+    { "id": "box_ground", "defaultScale": { "x": 2.0, "y": 3.0 } }
+  ],
+  "triggers": [
+    { "id": "event" }
+  ]
+}

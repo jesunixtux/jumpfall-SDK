@@ -113,6 +113,76 @@ class JumpfallSdkTests(unittest.TestCase):
             self.assertIn("content.count", {problem.code for problem in validator.problems})
             self.assertEqual(len(validator.problems), 1)
 
+    def test_lighting_example_and_legacy_maps_validate(self) -> None:
+        validator = Validator(TEMPLATE)
+        path = TEMPLATE / "examples" / "lighting.jfue"
+        validator._validate_map_piece_ids(path.resolve(), set())
+        self.assertFalse(validator.problems, validator.problems)
+        validator._validate_map_lights(path, None, [])
+        self.assertFalse(validator.problems, validator.problems)
+
+    def test_lighting_rejects_invalid_values_and_duplicate_ids(self) -> None:
+        validator = Validator(TEMPLATE)
+        path = TEMPLATE / "examples" / "lighting.jfue"
+        validator._validate_map_lights(path, [
+            {"objectId": "lamp", "range": float("nan")},
+            {"objectId": "lamp", "intensity": -1, "vertices": []},
+            {"objectId": [], "shape": {}, "color": []},
+        ], [{"id": "light", "eventAction": "set_light", "eventValue": "toggle", "eventTargetObjectId": "missing"}])
+        codes = {problem.code for problem in validator.problems}
+        self.assertTrue({"map.light_value", "map.light_id", "map.light_vertices", "map.light_target"} <= codes)
+        validator._validate_map_lights(path, [], [{"id": "light", "eventAction": "set_light", "eventValue": {}, "eventTargetObjectId": []}])
+        self.assertIn("map.light_action", {problem.code for problem in validator.problems})
+
+    def test_validates_ghost_player_limits_and_safe_events(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            map_path = root / "ghosts.jfue"
+            ghost = {
+                "displayName": "tutorial_jump",
+                "startDelay": 0.0,
+                "playbackSpeed": 1.0,
+                "opacity": 0.45,
+                "sampleInterval": 1.0 / 30.0,
+                "frames": [
+                    {"time": 0.0, "px": 0.0, "py": 0.0, "rotZ": 0.0, "sx": 1.0, "sy": 1.0, "animatorStateHash": 123, "animatorNormalizedTime": 0.0},
+                    {"time": 0.1, "px": 1.0, "py": 1.0, "rotZ": 0.0, "sx": 1.0, "sy": 1.0, "animatorStateHash": 123, "animatorNormalizedTime": 0.25},
+                ],
+            }
+            map_path.write_text(
+                json.dumps(
+                    {
+                        "pieces": [],
+                        "triggers": [
+                            {
+                                "id": "event",
+                                "eventAction": "level_event",
+                                "eventId": "ghost.restart",
+                                "eventDelaySeconds": 0.0,
+                            }
+                        ],
+                        "ghosts": [ghost],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            validator = Validator(root)
+            validator._validate_map_piece_ids(map_path.resolve(), set())
+            self.assertEqual([], [str(problem) for problem in validator.problems])
+
+            invalid = json.loads(map_path.read_text(encoding="utf-8"))
+            invalid["triggers"][0]["eventAction"] = "send_message"
+            invalid["ghosts"] = [ghost for _ in range(33)]
+            map_path.write_text(json.dumps(invalid), encoding="utf-8")
+
+            validator = Validator(root)
+            validator._validate_map_piece_ids(map_path.resolve(), set())
+            codes = {problem.code for problem in validator.problems}
+            self.assertIn("map.event_action", codes)
+            self.assertIn("map.ghost_count", codes)
+            self.assertIn("map.ghost_duplicate", codes)
+
 
 if __name__ == "__main__":
     unittest.main()

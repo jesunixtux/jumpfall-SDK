@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jevzgames.com/schemas/jumpfall.runtime-build-report.schema.json",
+  "title": "JumpFall Runtime Level Build Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "levelFormatVersion",
+    "editorVisuals",
+    "freezeElevatorsForEditing",
+    "completed",
+    "clearedRootChildren",
+    "records"
+  ],
+  "properties": {
+    "contractVersion": { "const": 1 },
+    "levelFormatVersion": { "type": "integer", "minimum": 1 },
+    "editorVisuals": { "type": "boolean" },
+    "freezeElevatorsForEditing": { "type": "boolean" },
+    "completed": { "type": "boolean" },
+    "clearedRootChildren": { "type": "integer", "minimum": 0 },
+    "records": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/record" }
+    }
+  },
+  "$defs": {
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceIndex",
+        "kind",
+        "id",
+        "objectId",
+        "status",
+        "px",
+        "py",
+        "rotZ",
+        "sx",
+        "sy",
+        "detail"
+      ],
+      "properties": {
+        "sourceIndex": { "type": "integer", "minimum": 0 },
+        "kind": {
+          "enum": ["background", "piece", "trigger", "boss", "ghost", "light", "soundtrack", "lua"]
+        },
+        "id": { "type": "string" },
+        "objectId": { "type": "string" },
+        "status": {
+          "enum": [
+            "built",
+            "missing_definition",
+            "rejected",
+            "skipped_invalid_data",
+            "suppressed_in_editor"
+          ]
+        },
+        "px": { "type": "number" },
+        "py": { "type": "number" },
+        "rotZ": { "type": "number" },
+        "sx": { "type": "number" },
+        "sy": { "type": "number" },
+        "detail": { "type": "string" }
+      }
+    }
+  }
+}

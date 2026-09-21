@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jevzgames.com/schemas/jumpfall.save.schema.json",
+  "title": "JumpFall SaveData",
+  "description": "Stable SaveData contract supported by the Unity PC implementation. Versions 1 and 2 migrate in memory to version 3.",
+  "type": "object",
+  "required": ["saveVersion", "sceneName", "life"],
+  "properties": {
+    "saveVersion": { "type": "integer", "minimum": 1, "maximum": 3 },
+    "sceneName": { "type": "string" },
+    "hasPosition": { "type": "boolean", "default": true },
+    "posX": { "type": "number" },
+    "posY": { "type": "number" },
+    "life": { "type": "integer", "minimum": 1 },
+    "hasMovementState": { "type": "boolean", "default": false },
+    "wasGrounded": { "type": "boolean", "default": false },
+    "jumpCount": { "type": "integer", "minimum": 0 },
+    "airDashUsed": { "type": "boolean", "default": false }
+  },
+  "additionalProperties": false
+}

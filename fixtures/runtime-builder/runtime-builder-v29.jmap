@@ -1,0 +1,20 @@
+{
+  "version": 29,
+  "gridSize": 1.0,
+  "spawnPoint": { "x": 0.0, "y": 0.0 },
+  "hasSpawnPoint": true,
+  "background": { "enabled": false },
+  "backgrounds": [],
+  "soundtrack": { "enabled": false, "loop": true, "tracks": [] },
+  "lua": { "enabled": false, "entryFile": "main.lua", "allowInWorkshop": true },
+  "pieces": [
+    { "objectId": "piece_known", "id": "box_ground", "px": 2.0, "py": -1.0, "rotZ": 15.0, "sx": 1.0, "sy": 1.0 },
+    { "objectId": "piece_missing", "id": "missing_piece", "px": 8.0, "py": 3.0, "rotZ": 0.0, "sx": 3.0, "sy": 4.0 }
+  ],
+  "triggers": [
+    { "objectId": "trigger_known", "id": "event", "px": 5.0, "py": 1.0, "rotZ": 0.0, "sx": 2.0, "sy": 4.0 },
+    { "objectId": "trigger_missing", "id": "missing_trigger", "px": 9.0, "py": 2.0, "rotZ": 30.0, "sx": 1.0, "sy": 1.0 }
+  ],
+  "bosses": [],
+  "ghosts": []
+}

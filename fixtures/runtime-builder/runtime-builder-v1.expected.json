@@ -1,0 +1,14 @@
+{
+  "contractVersion": 1,
+  "levelFormatVersion": 29,
+  "editorVisuals": true,
+  "freezeElevatorsForEditing": true,
+  "completed": true,
+  "clearedRootChildren": 0,
+  "records": [
+    { "sourceIndex": 0, "kind": "piece", "id": "box_ground", "objectId": "piece_known", "status": "built", "px": 2.0, "py": -1.0, "rotZ": 15.0, "sx": 2.0, "sy": 3.0, "detail": "" },
+    { "sourceIndex": 1, "kind": "piece", "id": "missing_piece", "objectId": "piece_missing", "status": "missing_definition", "px": 8.0, "py": 3.0, "rotZ": 0.0, "sx": 3.0, "sy": 4.0, "detail": "" },
+    { "sourceIndex": 0, "kind": "trigger", "id": "event", "objectId": "trigger_known", "status": "built", "px": 5.0, "py": 1.0, "rotZ": 0.0, "sx": 2.0, "sy": 4.0, "detail": "" },
+    { "sourceIndex": 1, "kind": "trigger", "id": "missing_trigger", "objectId": "trigger_missing", "status": "missing_definition", "px": 9.0, "py": 2.0, "rotZ": 30.0, "sx": 1.0, "sy": 1.0, "detail": "" }
+  ]
+}

@@ -1,0 +1,362 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jevzgames.com/schemas/jumpfall.map.schema.json",
+  "title": "JumpFall JMAP/JFUE v29",
+  "description": "Persisted JumpFall map contract for version 29. Runtime-only fields that are not serialized are intentionally excluded.",
+  "type": "object",
+  "required": ["version", "gridSize", "spawnPoint", "pieces", "triggers"],
+  "properties": {
+    "version": { "const": 29 },
+    "gridSize": { "type": "number", "exclusiveMinimum": 0 },
+    "spawnPoint": { "$ref": "#/$defs/vector2" },
+    "hasSpawnPoint": { "type": "boolean" },
+    "useCustomPlayerGravity": { "type": "boolean" },
+    "playerGravityScale": { "type": "number", "minimum": 0, "maximum": 12 },
+    "background": { "$ref": "#/$defs/background" },
+    "backgrounds": { "type": "array", "items": { "$ref": "#/$defs/background" } },
+    "soundtrack": { "$ref": "#/$defs/soundtrack" },
+    "lua": { "$ref": "#/$defs/lua" },
+    "lightingEnabled": { "type": "boolean", "default": false },
+    "ambientLightIntensity": { "type": "number", "minimum": 0, "maximum": 2, "default": 1 },
+    "lights": { "type": "array", "items": { "$ref": "#/$defs/light" } },
+    "pieces": { "type": "array", "items": { "$ref": "#/$defs/piece" } },
+    "triggers": { "type": "array", "items": { "$ref": "#/$defs/trigger" } },
+    "bosses": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/boss" } },
+    "ghosts": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/ghost" } }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "light": {
+      "type": "object",
+      "properties": {
+        "objectId": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "startsOn": {
+          "type": "boolean"
+        },
+        "shape": {
+          "enum": [
+            "radial",
+            "spot",
+            "rectangle",
+            "freeform"
+          ]
+        },
+        "px": {
+          "type": "number",
+          "minimum": -100000,
+          "maximum": 100000
+        },
+        "py": {
+          "type": "number",
+          "minimum": -100000,
+          "maximum": 100000
+        },
+        "rotZ": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "width": {
+          "type": "number",
+          "minimum": 0.05,
+          "maximum": 200
+        },
+        "height": {
+          "type": "number",
+          "minimum": 0.05,
+          "maximum": 200
+        },
+        "range": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 200
+        },
+        "intensity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 8
+        },
+        "falloff": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "innerRadius": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 200
+        },
+        "innerAngle": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "outerAngle": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 360
+        },
+        "lightOrder": {
+          "type": "integer",
+          "minimum": -32767,
+          "maximum": 32767
+        },
+        "blendStyle": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "color": {
+          "type": "object",
+          "properties": {
+            "r": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "g": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "b": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "a": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "vertices": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/vector2"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "vector2": {
+      "type": "object",
+      "required": ["x", "y"],
+      "properties": { "x": { "type": "number" }, "y": { "type": "number" } },
+      "additionalProperties": false
+    },
+    "background": {
+      "type": "object",
+      "properties": {
+        "objectId": { "type": "string" }, "enabled": { "type": "boolean" },
+        "fileName": { "type": "string" }, "loopVideo": { "type": "boolean" },
+        "px": { "type": "number" }, "py": { "type": "number" }, "rotZ": { "type": "number" },
+        "sx": { "type": "number" }, "sy": { "type": "number" },
+        "pixelsPerUnit": { "type": "number", "exclusiveMinimum": 0 }, "sortingOrder": { "type": "integer" }
+      },
+      "additionalProperties": false
+    },
+    "soundtrack": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" }, "loop": { "type": "boolean" },
+        "tracks": { "type": "array", "items": { "$ref": "#/$defs/soundtrackTrack" } }
+      },
+      "additionalProperties": false
+    },
+    "soundtrackTrack": {
+      "type": "object",
+      "properties": { "fileName": { "type": "string" }, "volume": { "type": "number", "minimum": 0, "maximum": 1 } },
+      "additionalProperties": false
+    },
+    "lua": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" }, "entryFile": { "type": "string" }, "allowInWorkshop": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "piece": {
+      "type": "object",
+      "properties": {
+        "objectId": { "type": "string" }, "id": { "type": "string" },
+        "px": { "type": "number" }, "py": { "type": "number" }, "rotZ": { "type": "number" },
+        "sx": { "type": "number" }, "sy": { "type": "number" },
+        "planeJumpConfigured": { "type": "boolean" }, "planeJumpUseWorldTarget": { "type": "boolean" },
+        "planeJumpTargetX": { "type": "number" }, "planeJumpTargetY": { "type": "number" },
+        "planeJumpFlightTime": { "type": "number", "exclusiveMinimum": 0 },
+        "planeJumpControlLockSeconds": { "type": "number", "minimum": 0 },
+        "planeJumpCooldownSeconds": { "type": "number", "minimum": 0 },
+        "planeJumpMaxLaunchSpeed": { "type": "number", "exclusiveMinimum": 0 },
+        "planeJumpResetAirActions": { "type": "boolean" }, "planeJumpIgnoreGravityDuringLaunch": { "type": "boolean" },
+        "elevatorConfigured": { "type": "boolean" }, "elevatorTravelY": { "type": "number" },
+        "elevatorSpeed": { "type": "number", "exclusiveMinimum": 0 },
+        "elevatorWaitAtStartSeconds": { "type": "number", "minimum": 0 },
+        "elevatorWaitAtEndSeconds": { "type": "number", "minimum": 0 },
+        "elevatorStartAtEnd": { "type": "boolean" }, "elevatorStartMovingToEnd": { "type": "boolean" },
+        "elevatorLoop": { "type": "boolean" }, "elevatorCarryRiders": { "type": "boolean" },
+        "elevatorActivateOnPlayerTop": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "trigger": {
+      "type": "object",
+      "properties": {
+        "objectId": { "type": "string" }, "id": { "type": "string" },
+        "px": { "type": "number" }, "py": { "type": "number" }, "rotZ": { "type": "number" },
+        "sx": { "type": "number" }, "sy": { "type": "number" },
+        "targetMapName": { "type": "string" }, "finishAction": { "type": "string" }, "menuSceneName": { "type": "string" },
+        "luaEventName": { "type": "string" }, "cameraViewMode": { "type": "integer", "minimum": 0, "maximum": 2 },
+        "cameraWorldX": { "type": "number" }, "cameraWorldY": { "type": "number" },
+        "cameraOffsetX": { "type": "number" }, "cameraOffsetY": { "type": "number" },
+        "cameraOverrideOrthographicSize": { "type": "boolean" }, "cameraOrthographicSize": { "type": "number", "exclusiveMinimum": 0 },
+        "cameraBlendSeconds": { "type": "number", "minimum": 0 },
+        "visibilityTargetName": { "type": "string" }, "visibilityTargetObjectId": { "type": "string" },
+        "visibilityAction": { "type": "string" }, "visibilitySetInitialState": { "type": "boolean" },
+        "visibilityInitiallyVisible": { "type": "boolean" }, "visibilityOnlyOnce": { "type": "boolean" },
+        "visibilityDisableAfterUse": { "type": "boolean" },
+        "eventTargetName": { "type": "string" }, "eventTargetObjectId": { "type": "string" },
+        "eventAction": { "type": "string" }, "eventValue": { "type": "string" },
+        "eventAnimatorParameter": { "type": "string" }, "eventAnimatorStateName": { "type": "string" },
+        "eventId": { "type": "string" }, "eventMessageName": { "type": "string" },
+        "eventDelaySeconds": { "type": "number", "minimum": 0, "maximum": 3600 },
+        "eventOnlyOnce": { "type": "boolean" }, "eventDisableAfterUse": { "type": "boolean" },
+        "eventAutoStart": { "type": "boolean" }, "eventSetInitialState": { "type": "boolean" },
+        "eventInitiallyActive": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "boss": {
+      "type": "object",
+      "properties": {
+        "objectId": { "type": "string" }, "id": { "type": "string" }, "displayName": { "type": "string" },
+        "px": { "type": "number" }, "py": { "type": "number" }, "sx": { "type": "number" }, "sy": { "type": "number" },
+        "arenaLeft": { "type": "number" }, "arenaRight": { "type": "number" }, "arenaFloorY": { "type": "number" },
+        "maxHealth": { "type": "integer", "minimum": 1 }, "contactDamage": { "type": "integer", "minimum": 0 },
+        "contactKnockback": { "type": "number", "minimum": 0 }, "autoActivate": { "type": "boolean" },
+        "activationDistance": { "type": "number", "minimum": 0 }, "startNodeId": { "type": "string" },
+        "bodyColor": { "type": "string" }, "accentColor": { "type": "string" },
+        "colliderEnabled": { "type": "boolean" }, "colliderIsTrigger": { "type": "boolean" },
+        "colliderWidth": { "type": "number" }, "colliderHeight": { "type": "number" },
+        "colliderOffsetX": { "type": "number" }, "colliderOffsetY": { "type": "number" },
+        "showColliderGuide": { "type": "boolean" }, "showHealthBar": { "type": "boolean" },
+        "lockCompletionTarget": { "type": "boolean" }, "completionTargetObjectId": { "type": "string" },
+        "completionTargetName": { "type": "string" }, "finishLevelOnDefeat": { "type": "boolean" },
+        "finishSceneName": { "type": "string" }, "defeatDelay": { "type": "number", "minimum": 0 },
+        "maxActiveHazards": { "type": "integer", "minimum": 1 }, "hazardPoolCapacity": { "type": "integer", "minimum": 1 },
+        "damageMode": { "type": "string" }, "damagePlayerOnContact": { "type": "boolean" },
+        "stompDamageEnabled": { "type": "boolean" }, "stompDamage": { "type": "integer", "minimum": 0 },
+        "stompBounceForce": { "type": "number" }, "stompMinFallSpeed": { "type": "number" },
+        "stompCooldown": { "type": "number", "minimum": 0 }, "stompPlayerInvulnerabilitySeconds": { "type": "number", "minimum": 0 },
+        "stompZoneWidth": { "type": "number" }, "stompZoneHeight": { "type": "number" },
+        "stompZoneOffsetX": { "type": "number" }, "stompZoneOffsetY": { "type": "number" },
+        "playerDeathBehavior": { "type": "string" },
+        "visualParts": { "type": "array", "items": { "$ref": "#/$defs/bossVisualPart" } },
+        "animations": { "$ref": "#/$defs/bossAnimationLibrary" },
+        "idleAnimationId": { "type": "string" }, "activationAnimationId": { "type": "string" },
+        "damageAnimationId": { "type": "string" }, "defeatAnimationId": { "type": "string" },
+        "nodes": { "type": "array", "maxItems": 128, "items": { "$ref": "#/$defs/bossNode" } }
+      },
+      "additionalProperties": false
+    },
+    "bossNode": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" }, "title": { "type": "string" }, "type": { "type": "string" },
+        "canvasX": { "type": "number" }, "canvasY": { "type": "number" },
+        "nextNodeId": { "type": "string" }, "alternateNodeId": { "type": "string" },
+        "duration": { "type": "number" }, "speed": { "type": "number" }, "power": { "type": "number" },
+        "damage": { "type": "integer" }, "count": { "type": "integer" }, "spreadDegrees": { "type": "number" },
+        "threshold": { "type": "number" }, "telegraphSeconds": { "type": "number" }, "cooldownSeconds": { "type": "number" },
+        "targetMode": { "type": "string" }, "targetX": { "type": "number" }, "targetY": { "type": "number" },
+        "projectileOrigin": { "type": "string" }, "projectileDirection": { "type": "string" },
+        "projectileOffsetX": { "type": "number" }, "projectileOffsetY": { "type": "number" },
+        "projectileAngleDegrees": { "type": "number" }, "projectileSize": { "type": "number" },
+        "projectileLifetime": { "type": "number" }, "projectileColor": { "type": "string" },
+        "animatorTrigger": { "type": "string" }, "animationId": { "type": "string" },
+        "animationSpeed": { "type": "number" }, "waitForAnimation": { "type": "boolean" },
+        "signalId": { "type": "string" }, "signalTargetObjectId": { "type": "string" }, "damageMode": { "type": "string" },
+        "cameraMode": { "type": "string" }, "cameraX": { "type": "number" }, "cameraY": { "type": "number" },
+        "cameraZoom": { "type": "number" }, "cameraBlendSeconds": { "type": "number" }, "cameraHoldSeconds": { "type": "number" },
+        "signalTargetName": { "type": "string" }, "signalMessage": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "bossVisualPart": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" }, "displayName": { "type": "string" }, "spriteFile": { "type": "string" },
+        "x": { "type": "number" }, "y": { "type": "number" }, "rotationZ": { "type": "number" },
+        "scaleX": { "type": "number" }, "scaleY": { "type": "number" }, "sortingOrder": { "type": "integer" },
+        "visible": { "type": "boolean" }, "flipX": { "type": "boolean" }, "color": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "bossAnimationLibrary": {
+      "type": "object",
+      "properties": {
+        "version": { "type": "integer" },
+        "clips": { "type": "array", "items": { "$ref": "#/$defs/bossAnimationClip" } }
+      },
+      "additionalProperties": false
+    },
+    "bossAnimationClip": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" }, "displayName": { "type": "string" }, "framesPerSecond": { "type": "number" },
+        "loop": { "type": "boolean" }, "frames": { "type": "array", "items": { "$ref": "#/$defs/bossAnimationFrame" } }
+      },
+      "additionalProperties": false
+    },
+    "bossAnimationFrame": {
+      "type": "object",
+      "properties": {
+        "spriteFile": { "type": "string" }, "durationMultiplier": { "type": "number" },
+        "flipX": { "type": "boolean" }, "color": { "type": "string" },
+        "parts": { "type": "array", "items": { "$ref": "#/$defs/bossAnimationFramePart" } }
+      },
+      "additionalProperties": false
+    },
+    "bossAnimationFramePart": {
+      "type": "object",
+      "properties": {
+        "partId": { "type": "string" }, "spriteFile": { "type": "string" },
+        "x": { "type": "number" }, "y": { "type": "number" }, "rotationZ": { "type": "number" },
+        "scaleX": { "type": "number" }, "scaleY": { "type": "number" }, "visible": { "type": "boolean" },
+        "flipX": { "type": "boolean" }, "color": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "ghost": {
+      "type": "object",
+      "properties": {
+        "objectId": { "type": "string" }, "displayName": { "type": "string" },
+        "autoPlay": { "type": "boolean" }, "loop": { "type": "boolean" }, "visible": { "type": "boolean" },
+        "startDelay": { "type": "number" }, "playbackSpeed": { "type": "number" }, "opacity": { "type": "number" },
+        "sortingOrder": { "type": "integer" }, "sampleInterval": { "type": "number" },
+        "frames": { "type": "array", "maxItems": 18000, "items": { "$ref": "#/$defs/ghostFrame" } }
+      },
+      "additionalProperties": false
+    },
+    "ghostFrame": {
+      "type": "object",
+      "properties": {
+        "time": { "type": "number" }, "px": { "type": "number" }, "py": { "type": "number" },
+        "rotZ": { "type": "number" }, "sx": { "type": "number" }, "sy": { "type": "number" },
+        "flipX": { "type": "boolean" }, "flipY": { "type": "boolean" },
+        "animatorStateHash": { "type": "integer" }, "animatorNormalizedTime": { "type": "number" }
+      },
+      "additionalProperties": false
+    }
+  }
+}
